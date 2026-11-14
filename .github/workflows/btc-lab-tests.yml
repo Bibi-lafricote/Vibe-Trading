@@ -1,0 +1,34 @@
+name: btc-lab skills tests
+on:
+  push:
+    branches:
+      - btc-lab/deepseek-readonly
+    paths:
+      - '.github/workflows/btc-lab-tests.yml'
+      - 'agent/src/skills/deepseek-api/**'
+      - 'agent/src/skills/anonymize-before-remote-llm/**'
+permissions:
+  contents: read
+jobs:
+  skills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEEPSEEK_API_KEY: ''
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install local masking dependency
+        run: python -m pip install -r agent/src/skills/anonymize-before-remote-llm/requirements.txt
+      - name: Report dependency version
+        run: python -c "import phonenumbers; print(phonenumbers.__version__)"
+      - name: Test real anonymizer and international phones
+        run: python -m unittest discover -s agent/src/skills/anonymize-before-remote-llm/tests -p 'test_*.py' -v
+      - name: Test DeepSeek client without API calls
+        if: success() || failure()
+        run: python -m unittest discover -s agent/src/skills/deepseek-api/tests -p 'test_*.py' -v
