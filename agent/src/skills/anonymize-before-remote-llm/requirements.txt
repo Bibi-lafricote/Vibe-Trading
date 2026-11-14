@@ -1,0 +1,2 @@
+# Dependance locale ; version exacte a figer apres validation.
+phonenumbers>=8.13,<10
