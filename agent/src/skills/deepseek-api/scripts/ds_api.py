@@ -1,5 +1,6 @@
 """Client DeepSeek btc-lab. Integration preparatoire ; aucun outil de courtier."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,16 @@ def sanitize(text, region=None):
         sys.path.insert(0, str(folder))
     from anonymiser import anonymiser
     return anonymiser(text, region)
+
+
+def validate_fetch_url(text):
+    path = Path(__file__).resolve().with_name("public_url.py")
+    spec = importlib.util.spec_from_file_location("btc_lab_url_policy", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Politique URL indisponible")
+    policy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(policy)
+    return policy.validate_url(text)
 
 
 def api_key():
@@ -84,10 +95,10 @@ def execute(command, text="", region=None, count=5, action="list", file_id=None)
             raise ValueError("Recherche : 128 caracteres maximum, count entre 1 et 50")
         return request("/v1/tools/search", {"query": clean, "count": count})
     if command == "fetch":
-        url = urllib.parse.urlsplit(text)
-        if masked or url.scheme != "https" or not url.hostname or url.username or url.password:
-            raise ValueError("URL refusee : HTTPS public sans donnees sensibles exige")
-        return request("/v1/tools/fetch", {"url": text})
+        if masked:
+            raise ValueError("URL sensible refusee")
+        validated = validate_fetch_url(text)
+        return request("/v1/tools/fetch", {"url": validated})
     if command == "fim":
         if masked:
             raise ValueError("Code contenant des donnees sensibles : revision locale requise")
